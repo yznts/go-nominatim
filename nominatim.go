@@ -52,9 +52,12 @@ type SearchResult struct {
 }
 
 type SearchAddress struct {
+	HouseNumber   string `json:"house_number"`
 	Road          string `json:"road"`
-	Neighbourhood string `json:"neighbourhood"`
+	Building      string `json:"building"`
 	City          string `json:"city"`
+	Suburb        string `json:"suburb"`
+	Neighbourhood string `json:"neighbourhood"`
 	County        string `json:"county"`
 	State         string `json:"state"`
 	PostalCode    string `json:"postcode"`
