@@ -4,12 +4,16 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 )
 
+var lettersregex = regexp.MustCompile("([A-Za-z ]+)")
+
 type Nominatim struct {
-	BaseURL string
+	BaseURL           string
+	FormatHouseNumber bool
 }
 
 type SearchParameters struct {
@@ -163,6 +167,11 @@ func (n *Nominatim) Search(p SearchParameters) ([]SearchResult, error) {
 				bounding = append(bounding, vfloat)
 			}
 			results[i].BoundingBox = bounding
+		}
+	}
+	if n.FormatHouseNumber {
+		for i, result := range results {
+			results[i].Address.HouseNumber = lettersregex.ReplaceAllString(result.Address.HouseNumber, "")
 		}
 	}
 	// Return
