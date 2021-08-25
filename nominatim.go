@@ -147,6 +147,8 @@ func (n *Nominatim) Search(p SearchParameters) ([]SearchResult, error) {
 		if res, ok := cache[nurl.String()]; ok {
 			cachelock.Unlock()
 			return res, nil
+		} else {
+			cachelock.Unlock()
 		}
 	}
 	// Make request
