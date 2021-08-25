@@ -7,13 +7,17 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 var lettersregex = regexp.MustCompile("([A-Za-z ]+)")
+var cache = map[string][]SearchResult{}
+var cachelock = sync.Mutex{}
 
 type Nominatim struct {
 	BaseURL           string
 	FormatHouseNumber bool
+	UseCache          bool
 }
 
 type SearchParameters struct {
@@ -130,6 +134,14 @@ func (n *Nominatim) Search(p SearchParameters) ([]SearchResult, error) {
 	}
 	// Set query
 	nurl.RawQuery = q.Encode()
+	// Check cache
+	if n.UseCache {
+		cachelock.Lock()
+		if res, ok := cache[nurl.String()]; ok {
+			cachelock.Unlock()
+			return res, nil
+		}
+	}
 	// Make request
 	req, err := http.NewRequest("GET", nurl.String(), nil)
 	if err != nil {
@@ -173,6 +185,12 @@ func (n *Nominatim) Search(p SearchParameters) ([]SearchResult, error) {
 		for i, result := range results {
 			results[i].Address.HouseNumber = lettersregex.ReplaceAllString(result.Address.HouseNumber, "")
 		}
+	}
+	// Save cache
+	if n.UseCache {
+		cachelock.Lock()
+		cache[nurl.String()] = results
+		cachelock.Unlock()
 	}
 	// Return
 	return results, nil
