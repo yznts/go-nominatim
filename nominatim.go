@@ -8,20 +8,18 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 )
 
 var lettersregex = regexp.MustCompile("([A-Za-z ]+)")
 var cache = map[string][]SearchResult{}
 var cachelock = sync.Mutex{}
-var inprocess = map[string]bool{}
-var inprocesslock = sync.Mutex{}
+var reqlock = sync.Mutex{}
 
 type Nominatim struct {
-	BaseURL            string // Use another than default nominatim base url
-	FormatHouseNumber  bool   // Remove all letters from house number
-	UseCache           bool   // Use caching for same requests
-	WaitForSameRequest bool   // Useful in case of making same requests concurrently to prevent rate limit lock
+	BaseURL           string // Use another than default nominatim base url
+	FormatHouseNumber bool   // Remove all letters from house number
+	UseCache          bool   // Use caching for same requests
+	Sync              bool   // Only 1 request at the same time
 }
 
 type SearchParameters struct {
@@ -138,19 +136,6 @@ func (n *Nominatim) Search(p SearchParameters) ([]SearchResult, error) {
 	}
 	// Set query
 	nurl.RawQuery = q.Encode()
-	// Check in process
-	if n.WaitForSameRequest {
-		for {
-			inprocesslock.Lock()
-			_, inpr := inprocess[nurl.String()]
-			inprocesslock.Unlock()
-			if inpr {
-				time.Sleep(50 * time.Millisecond)
-			} else {
-				break
-			}
-		}
-	}
 	// Check cache
 	if n.UseCache {
 		cachelock.Lock()
@@ -158,6 +143,10 @@ func (n *Nominatim) Search(p SearchParameters) ([]SearchResult, error) {
 			cachelock.Unlock()
 			return res, nil
 		}
+	}
+	// Lock, if sync
+	if n.Sync {
+		reqlock.Lock()
 	}
 	// Make request
 	req, err := http.NewRequest("GET", nurl.String(), nil)
@@ -167,6 +156,10 @@ func (n *Nominatim) Search(p SearchParameters) ([]SearchResult, error) {
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return []SearchResult{}, err
+	}
+	// Unlock
+	if n.Sync {
+		reqlock.Unlock()
 	}
 	// Decode results
 	var results []SearchResult
