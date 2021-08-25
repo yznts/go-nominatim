@@ -8,16 +8,20 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 var lettersregex = regexp.MustCompile("([A-Za-z ]+)")
 var cache = map[string][]SearchResult{}
 var cachelock = sync.Mutex{}
+var inprocess = map[string]bool{}
+var inprocesslock = sync.Mutex{}
 
 type Nominatim struct {
-	BaseURL           string
-	FormatHouseNumber bool
-	UseCache          bool
+	BaseURL            string // Use another than default nominatim base url
+	FormatHouseNumber  bool   // Remove all letters from house number
+	UseCache           bool   // Use caching for same requests
+	WaitForSameRequest bool   // Useful in case of making same requests concurrently to prevent rate limit lock
 }
 
 type SearchParameters struct {
@@ -134,6 +138,19 @@ func (n *Nominatim) Search(p SearchParameters) ([]SearchResult, error) {
 	}
 	// Set query
 	nurl.RawQuery = q.Encode()
+	// Check in process
+	if n.WaitForSameRequest {
+		for {
+			inprocesslock.Lock()
+			_, inpr := inprocess[nurl.String()]
+			inprocesslock.Unlock()
+			if inpr {
+				time.Sleep(50 * time.Millisecond)
+			} else {
+				break
+			}
+		}
+	}
 	// Check cache
 	if n.UseCache {
 		cachelock.Lock()
