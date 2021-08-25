@@ -76,6 +76,11 @@ type SearchAddress struct {
 }
 
 func (n *Nominatim) Search(p SearchParameters) ([]SearchResult, error) {
+	// Lock, if sync
+	if n.Sync {
+		reqlock.Lock()
+		defer reqlock.Unlock()
+	}
 	// Defaults
 	if n.BaseURL == "" {
 		n.BaseURL = "https://nominatim.openstreetmap.org"
@@ -144,10 +149,6 @@ func (n *Nominatim) Search(p SearchParameters) ([]SearchResult, error) {
 			return res, nil
 		}
 	}
-	// Lock, if sync
-	if n.Sync {
-		reqlock.Lock()
-	}
 	// Make request
 	req, err := http.NewRequest("GET", nurl.String(), nil)
 	if err != nil {
@@ -156,10 +157,6 @@ func (n *Nominatim) Search(p SearchParameters) ([]SearchResult, error) {
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return []SearchResult{}, err
-	}
-	// Unlock
-	if n.Sync {
-		reqlock.Unlock()
 	}
 	// Decode results
 	var results []SearchResult
