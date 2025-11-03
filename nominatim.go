@@ -39,6 +39,7 @@ type SearchParameters struct {
 	// Additional features
 	IncludeAddress bool
 	IncludeGeoJSON bool
+	AcceptLanguage string
 }
 
 type SearchResult struct {
@@ -138,6 +139,9 @@ func (n *Nominatim) Search(p SearchParameters) ([]SearchResult, error) {
 	}
 	if p.IncludeGeoJSON {
 		q.Set("polygon_geojson", "1")
+	}
+	if p.AcceptLanguage != "" {
+		q.Set("accept-language", p.AcceptLanguage)
 	}
 	// Set query
 	nurl.RawQuery = q.Encode()
